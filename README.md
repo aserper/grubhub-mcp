@@ -25,16 +25,14 @@ An MCP (Model Context Protocol) server that provides programmatic access to Grub
 
 ## Installation
 
-Requires Python 3.11+.
+### Claude Code Plugin (Recommended)
 
 ```bash
-git clone https://github.com/AkCoding/grubhub-mcp.git
-cd grubhub-mcp
-uv venv && source .venv/bin/activate
-uv pip install -e .
+claude plugin marketplace add aserper/grubhub-mcp
+claude plugin install grubhub-mcp@grubhub-marketplace
 ```
 
-## Usage with Claude Code
+### uvx (No Installation Required)
 
 Add to your Claude Code MCP settings (`~/.claude/settings.json`):
 
@@ -42,17 +40,34 @@ Add to your Claude Code MCP settings (`~/.claude/settings.json`):
 {
   "mcpServers": {
     "grubhub": {
-      "command": "/path/to/grubhub-mcp/.venv/bin/python",
-      "args": ["-m", "grubhub_mcp"]
+      "command": "uvx",
+      "args": ["--from", "grubhub-mcp", "grubhub"]
     }
   }
 }
 ```
 
-Then use the tools in Claude Code:
+### Manual / From Source
 
+Requires Python 3.11+.
+
+```bash
+git clone https://github.com/aserper/grubhub-mcp.git
+cd grubhub-mcp
+uv venv && source .venv/bin/activate
+uv pip install -e .
 ```
-Search for pizza restaurants near Times Square
+
+Then add to `~/.claude/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "grubhub": {
+      "command": "/path/to/grubhub-mcp/.venv/bin/grubhub"
+    }
+  }
+}
 ```
 
 ## Usage with Other MCP Clients
@@ -60,6 +75,13 @@ Search for pizza restaurants near Times Square
 Run the server over stdio:
 
 ```bash
+# With uvx (no install needed)
+uvx --from grubhub-mcp grubhub
+
+# Or from a local install
+grubhub
+
+# Or as a Python module
 python -m grubhub_mcp
 ```
 

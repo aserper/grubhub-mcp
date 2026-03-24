@@ -1,8 +1,10 @@
 [project]
 name = "grubhub-mcp"
 version = "0.1.0"
-description = "MCP server for Grubhub - search restaurants, browse menus, manage cart, place orders"
+description = "MCP server for Grubhub — search restaurants, browse menus, manage cart, place orders"
 requires-python = ">=3.11"
+license = "MIT"
+authors = [{ name = "aserper" }]
 dependencies = [
     "mcp>=1.0.0",
     "httpx>=0.27.0",
@@ -10,11 +12,14 @@ dependencies = [
 ]
 
 [project.scripts]
-grubhub-mcp = "grubhub_mcp.server:main"
+grubhub = "grubhub_mcp.server:main"
 
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/grubhub_mcp"]
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages]
+find = { where = ["src"] }

@@ -1,0 +1,11 @@
+{
+  "marketplaces": {
+    "grubhub-marketplace": {
+      "plugins": {
+        "grubhub-mcp": {
+          "source": ".claude-plugin/"
+        }
+      }
+    }
+  }
+}
