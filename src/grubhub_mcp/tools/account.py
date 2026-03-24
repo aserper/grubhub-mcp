@@ -16,10 +16,18 @@ def register(mcp: FastMCP) -> None:
     async def get_profile() -> str:
         """Get the current user's profile information. Requires authentication."""
         client = get_client()
-        if not client.session.is_authenticated:
+        if not client.session.is_authenticated or not client.session.diner_udid:
             return json.dumps({"error": "Must be logged in to view profile"})
 
-        data = await auth_module.get_account_details(client)
+        data = await client.get(
+            f"/diners/{client.session.diner_udid}/details",
+            params={
+                "with_addresses": True,
+                "with_favorites": True,
+                "with_diner_identity": True,
+                "with_phone_numbers": True,
+            },
+        )
         return json.dumps(data, indent=2)
 
     @mcp.tool()

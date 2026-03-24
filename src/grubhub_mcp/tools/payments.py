@@ -19,7 +19,7 @@ def register(mcp: FastMCP) -> None:
             return json.dumps({"error": "Must be logged in to view payment methods"})
 
         data = await client.get(
-            f"/diners/{client.session.diner_udid}/payment_methods"
+            f"/payments/{client.session.diner_udid}/payments"
         )
         return json.dumps(data, indent=2)
 

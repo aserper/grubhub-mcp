@@ -18,9 +18,9 @@ def register(mcp: FastMCP) -> None:
         longitude: float,
         query: str = "",
         page_size: int = 20,
-        page_num: int = 0,
-        sort_type: str = "RELEVANCE",
-        delivery_or_pickup: str = "DELIVERY",
+        page_num: int = 1,
+        sort_type: str = "",
+        location_mode: str = "DELIVERY",
     ) -> str:
         """Search for restaurants near a location.
 
@@ -29,23 +29,22 @@ def register(mcp: FastMCP) -> None:
             longitude: Longitude of the delivery address
             query: Optional search query (cuisine, restaurant name, dish)
             page_size: Number of results per page (default 20)
-            page_num: Page number for pagination (default 0)
-            sort_type: Sort order - RELEVANCE, DISTANCE, RATING, PRICE_LOW_TO_HIGH, ESTIMATED_DELIVERY_TIME
-            delivery_or_pickup: DELIVERY or PICKUP
+            page_num: Page number for pagination (1-based, default 1)
+            sort_type: Optional sort — leave empty for default relevance
+            location_mode: DELIVERY or PICKUP (default DELIVERY)
         """
         client = get_client()
         if not client.session.auth_token:
             await auth_module.create_anonymous_session(client)
 
         params: dict[str, Any] = {
-            "orderMethod": delivery_or_pickup,
-            "locationMode": "DELIVERY",
+            "location": f"POINT({longitude} {latitude})",
+            "locationMode": location_mode,
             "facetSet": "umamiV6",
             "pageSize": page_size,
             "pageNum": page_num,
-            "hideHat498": "true",
+            "hideHateos": "true",
             "searchMetrics": "true",
-            "location": f"POINT({longitude} {latitude})",
             "preciseLocation": "true",
             "sortSetId": "umami",
             "countOmittingTimes": "true",
@@ -63,6 +62,7 @@ def register(mcp: FastMCP) -> None:
         query: str,
         latitude: float,
         longitude: float,
+        location_mode: str = "DELIVERY",
     ) -> str:
         """Get autocomplete suggestions for a search query.
 
@@ -70,16 +70,20 @@ def register(mcp: FastMCP) -> None:
             query: The partial search text
             latitude: Latitude for location context
             longitude: Longitude for location context
+            location_mode: DELIVERY or PICKUP (default DELIVERY)
         """
         client = get_client()
         if not client.session.auth_token:
             await auth_module.create_anonymous_session(client)
 
-        params: dict[str, Any] = {
-            "lat": latitude,
-            "lng": longitude,
-            "prefix": query,
-            "locationMode": "DELIVERY",
-        }
+        params = [
+            ("lat", latitude),
+            ("lng", longitude),
+            ("prefix", query),
+            ("locationMode", location_mode),
+            ("resultTypeList", "restaurant"),
+            ("resultTypeList", "restaurantPrediction"),
+            ("resultTypeList", "dishTerm"),
+        ]
         data = await client.get("/autocomplete", params=params)
         return json.dumps(data, indent=2)

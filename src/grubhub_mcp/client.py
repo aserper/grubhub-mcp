@@ -169,7 +169,7 @@ class GrubhubClient:
         return False
 
     async def get(
-        self, path: str, params: dict[str, Any] | None = None, auth_required: bool = True
+        self, path: str, params: Any = None, auth_required: bool = True
     ) -> dict[str, Any]:
         resp = await self._http.get(
             path, headers=self._headers(auth_required), params=params
