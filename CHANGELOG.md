@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.1.3 (2026-03-24)
+
+### Bug Fixes
+
+- Fix search, autocomplete, profile, and payment endpoints
+  ([`3f78fb2`](https://github.com/aserper/grubhub-mcp/commit/3f78fb2e7e4af6bcf6b41dd8b4dd7569badae63d))
+
+
 ## v1.1.2 (2026-03-24)
 
 ### Bug Fixes
