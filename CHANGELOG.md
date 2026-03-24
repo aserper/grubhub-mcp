@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.1.1 (2026-03-24)
+
+### Bug Fixes
+
+- Add csrf_token to OTP verify flow and persist it across sessions
+  ([`eb6f718`](https://github.com/aserper/grubhub-mcp/commit/eb6f718410261a23e2b79caa586b9656a73c6ab3))
+
+
 ## v1.1.0 (2026-03-24)
 
 ### Features
