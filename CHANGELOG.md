@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.1.2 (2026-03-24)
+
+### Bug Fixes
+
+- Correct API endpoint paths and diner_udid extraction
+  ([`d523540`](https://github.com/aserper/grubhub-mcp/commit/d523540c00a0067bd9e34e7c43f6c65342f76c45))
+
+
 ## v1.1.1 (2026-03-24)
 
 ### Bug Fixes
