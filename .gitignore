@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+*.xapk
+*.apk
+decompiled/
+extracted/
+.env
