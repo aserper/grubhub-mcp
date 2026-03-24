@@ -55,7 +55,7 @@ def register(mcp: FastMCP) -> None:
         if sort_type:
             params["sorts"] = json.dumps({"sortType": sort_type})
 
-        data = await client.get("/search_listing", params=params)
+        data = await client.get("/restaurants/search/search_listing", params=params)
         return json.dumps(data, indent=2)
 
     @mcp.tool()
@@ -75,9 +75,11 @@ def register(mcp: FastMCP) -> None:
         if not client.session.auth_token:
             await auth_module.create_anonymous_session(client)
 
-        params = {
-            "queryText": query,
-            "location": f"POINT({longitude} {latitude})",
+        params: dict[str, Any] = {
+            "lat": latitude,
+            "lng": longitude,
+            "prefix": query,
+            "locationMode": "DELIVERY",
         }
-        data = await client.get("/search_listing/autocomplete", params=params)
+        data = await client.get("/autocomplete", params=params)
         return json.dumps(data, indent=2)

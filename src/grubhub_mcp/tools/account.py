@@ -117,7 +117,7 @@ def register(mcp: FastMCP) -> None:
             return json.dumps({"error": "Must be logged in to view favorites"})
 
         data = await client.get(
-            f"/diners/{client.session.diner_udid}/favorites"
+            f"/diners/{client.session.diner_udid}/favorites/restaurants"
         )
         return json.dumps(data, indent=2)
 
@@ -133,8 +133,8 @@ def register(mcp: FastMCP) -> None:
             return json.dumps({"error": "Must be logged in"})
 
         data = await client.post(
-            f"/diners/{client.session.diner_udid}/favorites",
-            data={"restaurant_id": restaurant_id},
+            f"/diners/{client.session.diner_udid}/favorites/restaurants",
+            data={"restaurant_id": int(restaurant_id)},
         )
         return json.dumps(data if data else {"status": "added"}, indent=2)
 

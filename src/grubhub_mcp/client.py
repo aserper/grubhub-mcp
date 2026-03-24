@@ -72,7 +72,8 @@ class GrubhubSession:
         if not self.auth_token:
             self.auth_token = session_data.get("auth_token")
         self.refresh_token = session_data.get("session_handle", {}).get("refresh_token")
-        self.diner_udid = session_data.get("credential", {}).get("udid")
+        credential = session_data.get("credential", {})
+        self.diner_udid = credential.get("ud_id") or credential.get("udid")
         self.session_handle = session_data.get("session_handle")
         self.is_authenticated = True
         self._save()

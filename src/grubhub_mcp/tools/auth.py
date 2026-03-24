@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+import httpx
 from mcp.server.fastmcp import FastMCP
 
 from ..client import get_client
@@ -57,7 +58,14 @@ def register(mcp: FastMCP) -> None:
     async def verify_login_otp(email: str, code: str) -> str:
         """Verify a one-time passcode and complete login."""
         client = get_client()
-        data = await auth_module.verify_otp(client, email, code)
+        try:
+            data = await auth_module.verify_otp(client, email, code)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 401:
+                return json.dumps(
+                    {"error": "OTP expired or invalid — request a new code with send_login_otp"}
+                )
+            raise
         return json.dumps(
             {
                 "status": "authenticated",
