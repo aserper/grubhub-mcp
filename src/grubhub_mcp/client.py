@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -14,6 +16,10 @@ logger = logging.getLogger(__name__)
 BASE_URL = "https://api-gtm.grubhub.com"
 AUTH_BASE_URL = "https://api-gtm.grubhub.com"
 API_KEY = "ghandroid_Ujtwar5s9e3RYiSNV31X41y2hsK6Kh1Uv7JDrkpS"
+
+# File-based session persistence so auth survives across stdio invocations
+_SESSION_DIR = Path(os.environ.get("GRUBHUB_SESSION_DIR", Path.home() / ".grubhub-mcp"))
+_SESSION_FILE = _SESSION_DIR / "session.json"
 
 
 class GrubhubSession:
@@ -26,6 +32,37 @@ class GrubhubSession:
         self.browser_id: str = str(uuid4())
         self.is_authenticated: bool = False
         self.session_handle: dict[str, Any] | None = None
+        self._load()
+
+    def _load(self) -> None:
+        """Load persisted session from disk if available."""
+        try:
+            if _SESSION_FILE.exists():
+                data = json.loads(_SESSION_FILE.read_text())
+                self.auth_token = data.get("auth_token")
+                self.refresh_token = data.get("refresh_token")
+                self.diner_udid = data.get("diner_udid")
+                self.browser_id = data.get("browser_id", self.browser_id)
+                self.is_authenticated = data.get("is_authenticated", False)
+                self.session_handle = data.get("session_handle")
+        except Exception:
+            logger.debug("Failed to load persisted session", exc_info=True)
+
+    def _save(self) -> None:
+        """Persist session state to disk."""
+        try:
+            _SESSION_DIR.mkdir(parents=True, exist_ok=True)
+            _SESSION_FILE.write_text(json.dumps({
+                "auth_token": self.auth_token,
+                "refresh_token": self.refresh_token,
+                "diner_udid": self.diner_udid,
+                "browser_id": self.browser_id,
+                "is_authenticated": self.is_authenticated,
+                "session_handle": self.session_handle,
+            }))
+            _SESSION_FILE.chmod(0o600)
+        except Exception:
+            logger.debug("Failed to persist session", exc_info=True)
 
     def set_authenticated(self, session_data: dict[str, Any]) -> None:
         self.auth_token = session_data.get("session_handle", {}).get("access_token")
@@ -35,6 +72,7 @@ class GrubhubSession:
         self.diner_udid = session_data.get("credential", {}).get("udid")
         self.session_handle = session_data.get("session_handle")
         self.is_authenticated = True
+        self._save()
 
     def set_anonymous(self, session_data: dict[str, Any]) -> None:
         self.auth_token = session_data.get("session_handle", {}).get("access_token")
@@ -43,6 +81,7 @@ class GrubhubSession:
         self.refresh_token = session_data.get("session_handle", {}).get("refresh_token")
         self.session_handle = session_data.get("session_handle")
         self.is_authenticated = False
+        self._save()
 
     def clear(self) -> None:
         self.auth_token = None
@@ -50,6 +89,11 @@ class GrubhubSession:
         self.diner_udid = None
         self.is_authenticated = False
         self.session_handle = None
+        try:
+            if _SESSION_FILE.exists():
+                _SESSION_FILE.unlink()
+        except Exception:
+            pass
 
 
 class GrubhubClient:

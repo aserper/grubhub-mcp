@@ -49,23 +49,29 @@ async def get_session(client: GrubhubClient) -> dict[str, Any]:
 
 async def send_otp(client: GrubhubClient, email: str) -> dict[str, Any]:
     """Send a one-time passcode for authentication."""
+    # Ensure we have an anonymous session — Grubhub ties OTP to the bearer token
+    if not client.session.auth_token:
+        await create_anonymous_session(client)
     payload = {
         "brand": "GRUBHUB",
         "client_id": API_KEY,
         "email": email,
     }
-    return await client.post("/auth/confirmation_code", data=payload, auth_required=False)
+    return await client.post("/auth/confirmation_code", data=payload, auth_required=True)
 
 
 async def verify_otp(client: GrubhubClient, email: str, code: str) -> dict[str, Any]:
     """Verify OTP and authenticate."""
+    # Ensure we have the anonymous session token (loaded from disk if needed)
+    if not client.session.auth_token:
+        raise ValueError("No session found — call send_login_otp first")
     payload = {
         "brand": "GRUBHUB",
         "client_id": API_KEY,
         "email": email,
         "confirmation_code": code,
     }
-    data = await client.put("/auth/confirmation_code", data=payload, auth_required=False)
+    data = await client.put("/auth/confirmation_code", data=payload, auth_required=True)
     client.session.set_authenticated(data)
     return data
 
