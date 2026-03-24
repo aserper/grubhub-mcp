@@ -32,6 +32,7 @@ class GrubhubSession:
         self.browser_id: str = str(uuid4())
         self.is_authenticated: bool = False
         self.session_handle: dict[str, Any] | None = None
+        self.csrf_token: str | None = None
         self._load()
 
     def _load(self) -> None:
@@ -45,6 +46,7 @@ class GrubhubSession:
                 self.browser_id = data.get("browser_id", self.browser_id)
                 self.is_authenticated = data.get("is_authenticated", False)
                 self.session_handle = data.get("session_handle")
+                self.csrf_token = data.get("csrf_token")
         except Exception:
             logger.debug("Failed to load persisted session", exc_info=True)
 
@@ -59,6 +61,7 @@ class GrubhubSession:
                 "browser_id": self.browser_id,
                 "is_authenticated": self.is_authenticated,
                 "session_handle": self.session_handle,
+                "csrf_token": self.csrf_token,
             }))
             _SESSION_FILE.chmod(0o600)
         except Exception:
@@ -89,6 +92,7 @@ class GrubhubSession:
         self.diner_udid = None
         self.is_authenticated = False
         self.session_handle = None
+        self.csrf_token = None
         try:
             if _SESSION_FILE.exists():
                 _SESSION_FILE.unlink()

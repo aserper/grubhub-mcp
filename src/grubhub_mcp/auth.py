@@ -57,18 +57,25 @@ async def send_otp(client: GrubhubClient, email: str) -> dict[str, Any]:
         "client_id": API_KEY,
         "email": email,
     }
-    return await client.post("/auth/confirmation_code", data=payload, auth_required=True)
+    data = await client.post("/auth/confirmation_code", data=payload, auth_required=True)
+    # Capture csrf_token from response — required for the verify step
+    if "csrf_token" in data:
+        client.session.csrf_token = data["csrf_token"]
+        client.session._save()
+    return data
 
 
 async def verify_otp(client: GrubhubClient, email: str, code: str) -> dict[str, Any]:
     """Verify OTP and authenticate."""
-    # Ensure we have the anonymous session token (loaded from disk if needed)
     if not client.session.auth_token:
         raise ValueError("No session found — call send_login_otp first")
+    if not client.session.csrf_token:
+        raise ValueError("No csrf_token found — call send_login_otp first")
     payload = {
         "brand": "GRUBHUB",
         "client_id": API_KEY,
         "email": email,
+        "csrf_token": client.session.csrf_token,
         "confirmation_code": code,
     }
     data = await client.put("/auth/confirmation_code", data=payload, auth_required=True)
