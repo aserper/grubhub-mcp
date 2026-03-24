@@ -15,6 +15,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "python-semantic-release>=9.0.0",
+    "build>=1.0.0",
 ]
 
 [project.scripts]
@@ -36,6 +37,7 @@ assets = [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]
 branch = "master"
 commit_parser = "angular"
 major_on_zero = false
+build_command = "python -m build"
 
 [tool.semantic_release.publish]
 dist_glob_patterns = ["dist/*"]
