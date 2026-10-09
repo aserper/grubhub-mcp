@@ -16,12 +16,13 @@ async def _fetch_order_history_raw(
 ) -> dict[str, Any]:
     """Fetch one page of order history via the diner ``search_listing`` endpoint.
 
-    The legacy ``/diners/{id}/orders`` endpoint only ever returns the most recent
-    ~25 orders and carries no pagination metadata, so the full history is
-    unreachable through it. ``search_listing`` is what the Grubhub web app uses:
-    it honors ``pageNum``/``pageSize`` and returns a ``pager`` with
-    ``total_pages``. Results are normalized back to ``{"orders": [...]}`` so the
-    rest of the module is unchanged, with the ``pager`` passed through.
+    The legacy ``/diners/{id}/orders`` endpoint returns a recent set of orders
+    with no pagination metadata at all. ``search_listing`` is the endpoint the
+    Grubhub web app itself uses: it supports ``pageNum``/``pageSize`` and
+    reports a ``pager`` for the history it can reach, which need not include
+    every lifetime order. Normalize the result lists to ``orders`` and retain
+    the API's ``pager`` and ``stats`` without inferring retention limits or
+    completeness from their values.
     """
     # Validate page_size and page_num BEFORE making API calls
     if page_size <= 0:
@@ -40,7 +41,10 @@ async def _fetch_order_history_raw(
         ],
     )
     orders = (data.get("results") or []) + (data.get("partner_results") or [])
-    return {"orders": orders, "pager": data.get("pager") or {}}
+    history = {"orders": orders, "pager": data.get("pager") or {}}
+    if "stats" in data:
+        history["stats"] = data["stats"]
+    return history
 
 
 def _require_authenticated(client: Any, action: str) -> str | None:
@@ -165,12 +169,19 @@ def register(mcp: FastMCP) -> None:
     async def get_order_history(page_size: int = 20, page_num: int = 1) -> str:
         """Get past order history (paginated). Requires authentication.
 
-        Pagination is server-side via the ``search_listing`` endpoint, so the
-        full history is reachable -- iterate ``page_num`` from 1 up to
-        ``pagination.total_pages`` in the response.
+        Iterate ``page_num`` from 1 through ``pagination.total_pages`` to retrieve
+        the available history from ``search_listing``. This does not guarantee
+        lifetime history: the endpoint's available total may differ from the
+        profile's lifetime count, without proving deletion or a retention policy.
+        API ``stats`` are passed through when supplied. ``pagination.page_size``
+        retains its legacy meaning (requested size); ``requested_page_size`` is
+        always included. ``server_page_size`` uses ``pager.page_size`` when
+        present, otherwise ``stats.page_size`` when reported. ``total_results`` is
+        the API-reported available count, not a lifetime count. A short page
+        alone does not establish a server cap.
 
         Args:
-            page_size: Orders per page (default 20)
+            page_size: Requested orders per page (default 20)
             page_num: 1-based page number (default 1)
         """
         client = get_client()
@@ -182,19 +193,29 @@ def register(mcp: FastMCP) -> None:
             client, page_size=page_size, page_num=page_num
         )
         pager = data.get("pager") or {}
-        return json.dumps(
-            {
-                "orders": data["orders"],
-                "pagination": {
-                    "page_size": page_size,
-                    "page_num": page_num,
-                    "returned": len(data["orders"]),
-                    "total_pages": pager.get("total_pages"),
-                    "current_page": pager.get("current_page"),
-                },
+        result = {
+            "orders": data["orders"],
+            "pagination": {
+                "page_size": page_size,
+                "requested_page_size": page_size,
+                "page_num": page_num,
+                "returned": len(data["orders"]),
+                "total_pages": pager.get("total_pages"),
+                "current_page": pager.get("current_page"),
             },
-            indent=2,
-        )
+        }
+        if "stats" in data:
+            result["stats"] = data["stats"]
+            stats = data["stats"] or {}
+            if "page_size" in stats:
+                result["pagination"]["server_page_size"] = stats["page_size"]
+            if "total_results" in stats:
+                result["pagination"]["total_results"] = stats["total_results"]
+        if "page_size" in pager:
+            result["pagination"]["server_page_size"] = pager["page_size"]
+        if "total_results" in pager:
+            result["pagination"]["total_results"] = pager["total_results"]
+        return json.dumps(result, indent=2)
 
     @mcp.tool()
     async def track_order(order_id: str) -> str:

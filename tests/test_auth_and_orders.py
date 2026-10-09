@@ -157,7 +157,8 @@ class AuthAndOrdersTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(first["orders"], orders[:2])
         self.assertEqual(second["orders"], orders[2:4])
         self.assertEqual(second["pagination"], {
-            "page_size": 2, "page_num": 2, "returned": 2, "total_pages": 3, "current_page": 2,
+            "page_size": 2, "requested_page_size": 2, "page_num": 2, "returned": 2,
+            "total_pages": 3, "current_page": 2,
         })
         path, params, auth_required = client.get_calls[1]
         self.assertEqual(path, "/diners/diner-123/search_listing")
