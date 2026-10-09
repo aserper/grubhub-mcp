@@ -97,6 +97,31 @@ Use the login tool with my email and password
 
 Supports email/password login and OTP (one-time passcode) authentication.
 
+Sessions are stored in `~/.grubhub-mcp/session.json` (override the directory with
+`GRUBHUB_SESSION_DIR`). Access tokens are refreshed on use, including before
+expiry when Grubhub supplies expiry metadata and once after an authenticated
+request returns 401. Rotated tokens are saved for the next server invocation.
+Refresh responses that omit account metadata do not erase your login identity.
+Concurrent refreshes are serialized within the client, and on POSIX systems
+across server processes sharing the session directory. Session writes are atomic
+and use private file permissions. Grubhub's lifetime fields are in minutes;
+the observed access/refresh lifetimes are one hour / 30 days, but server policy
+may change.
+There is no background keep-alive: a revoked or expired refresh token still
+requires a new login. Do not share your session file; it contains credentials.
+
+## Order History Pagination
+
+`get_order_history` uses server-side pagination so older orders are reachable.
+`page_num` is **1-based** (default `1`), and `page_size` defaults to `20`.
+Iterate from `1` through `pagination.total_pages` to retrieve the full history.
+Both values must be positive. Order-detail and reorder fallbacks search across
+all available history pages.
+
+**Migration from v1.1.6:** callers using the old 0-based `page_num` must add one
+to their page index. The response now provides `total_pages` and `current_page`
+instead of the legacy `total_orders` value, which only counted a capped subset.
+
 ## How It Works
 
 The API endpoints were reverse-engineered from the Grubhub Android app (v2026.11.1) by decompiling the APK with jadx and analyzing the Retrofit service interfaces, OkHttp interceptors, and data models.
@@ -125,6 +150,17 @@ src/grubhub_mcp/
     ├── account.py     # Profile, addresses, favorites, password
     └── payments.py    # Payment methods, gift cards
 ```
+
+## Development
+
+Run the regression suite with:
+
+```
+uv run python -m unittest discover -s tests -v
+```
+
+CI runs tests on pushes and pull requests, and the release job runs them before
+publishing. The package currently requires MCP 1.x (`mcp<2`).
 
 ## Disclaimer
 

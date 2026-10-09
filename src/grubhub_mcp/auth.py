@@ -7,6 +7,13 @@ from typing import Any
 from .client import API_KEY, GrubhubClient
 
 
+async def _complete_login(client: GrubhubClient, data: dict[str, Any], generation: str | None) -> None:
+    async with client.session_transition():
+        if client.session.login_generation != generation:
+            raise ValueError("Session changed during login; please retry")
+        client.session.set_authenticated(data)
+
+
 async def create_anonymous_session(client: GrubhubClient) -> dict[str, Any]:
     """Create an anonymous session for unauthenticated browsing."""
     payload = {
@@ -15,7 +22,10 @@ async def create_anonymous_session(client: GrubhubClient) -> dict[str, Any]:
         "scope": "anonymous",
     }
     data = await client.post("/auth/anon", data=payload, auth_required=False)
-    client.session.set_anonymous(data)
+    async with client.session_transition():
+        # A stale browsing process must not replace a newer authenticated login.
+        if not client.session.is_authenticated:
+            client.session.set_anonymous(data)
     return data
 
 
@@ -27,18 +37,23 @@ async def login(client: GrubhubClient, email: str, password: str) -> dict[str, A
         "email": email,
         "password": password,
     }
+    generation = client.session.login_generation
     data = await client.post("/auth/login", data=payload, auth_required=False)
-    client.session.set_authenticated(data)
+    await _complete_login(client, data, generation)
     return data
 
 
 async def logout(client: GrubhubClient) -> dict[str, Any]:
     """Log out and clear session."""
+    generation = client.session.login_generation
     try:
         data = await client.post("/auth/logout", auth_required=True)
     except Exception:
         data = {}
-    client.session.clear()
+    async with client.session_transition():
+        # Do not erase a newer explicit login while logout was in flight.
+        if client.session.login_generation == generation:
+            client.session.clear(persist_logout=True)
     return data
 
 
@@ -57,11 +72,15 @@ async def send_otp(client: GrubhubClient, email: str) -> dict[str, Any]:
         "client_id": API_KEY,
         "email": email,
     }
+    generation = client.session.login_generation
     data = await client.post("/auth/confirmation_code", data=payload, auth_required=True)
-    # Capture csrf_token from response — required for the verify step
+    # Capture csrf_token without overwriting a concurrently changed login.
     if "csrf_token" in data:
-        client.session.csrf_token = data["csrf_token"]
-        client.session._save()
+        async with client.session_transition():
+            if client.session.login_generation != generation or not client.session.auth_token:
+                raise ValueError("Login changed while sending OTP; request a new code")
+            client.session.csrf_token = data["csrf_token"]
+            client.session._save()
     return data
 
 
@@ -78,12 +97,17 @@ async def verify_otp(client: GrubhubClient, email: str, code: str) -> dict[str, 
         "csrf_token": client.session.csrf_token,
         "confirmation_code": code,
     }
+    generation = client.session.login_generation
     data = await client.put("/auth/confirmation_code", data=payload, auth_required=True)
-    client.session.set_authenticated(data)
+    await _complete_login(client, data, generation)
     if not client.session.diner_udid:
         # OTP responses sometimes omit credential metadata; fall back to /session.
+        generation = client.session.login_generation
         session_data = await get_session(client)
-        client.session.set_authenticated(session_data)
+        async with client.session_transition():
+            if client.session.login_generation != generation:
+                raise ValueError("Login changed during authentication; please retry")
+            client.session.update_tokens(session_data)
     return data
 
 
@@ -103,8 +127,9 @@ async def create_account(
         "first_name": first_name,
         "last_name": last_name,
     }
+    generation = client.session.login_generation
     data = await client.post("/credentials", data=payload, auth_required=False)
-    client.session.set_authenticated(data)
+    await _complete_login(client, data, generation)
     return data
 
 
