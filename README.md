@@ -110,17 +110,64 @@ may change.
 There is no background keep-alive: a revoked or expired refresh token still
 requires a new login. Do not share your session file; it contains credentials.
 
+## Address Validation
+
+`add_address` geocodes the supplied address through ``/geocode`` before saving
+and refuses empty, ambiguous, or incomplete results instead of storing a bad
+address. An optional ``phone`` is accepted when Grubhub requires one for the
+address; no phone number is inferred.
+
+## Session Diagnostics
+
+`get_session_info` reports stored session state, which is not proof of a healthy
+login. Pass ``verify=true`` to probe the authenticated profile through the normal
+client (including token refresh). The result then reports
+``verification_status`` as ``authenticated``, ``relogin_required``, or ``failed``,
+with ``verified_is_authenticated`` and, when a re-login is needed,
+``relogin_required``. The token value and profile data are never returned.
+
 ## Order History Pagination
 
-`get_order_history` uses server-side pagination so older orders are reachable.
-`page_num` is **1-based** (default `1`), and `page_size` defaults to `20`.
-Iterate from `1` through `pagination.total_pages` to retrieve the full history.
-Both values must be positive. Order-detail and reorder fallbacks search across
-all available history pages.
+`get_order_history` uses server-side pagination through `search_listing`.
+`page_num` is **1-based** (default `1`), and `page_size` is the requested page
+size (default `20`). Both must be positive. Iterate from `1` through
+`pagination.total_pages` to retrieve the available history from
+`search_listing`. This does not guarantee lifetime history: the endpoint's
+available total may differ from the profile's lifetime count, without proving
+deletion or a retention policy.
+
+The response still includes full order objects, including partner orders, and the
+existing pagination fields. Additional API metadata is exposed when supplied:
+
+- `stats`: the API's statistics, passed through unchanged (including any reported
+  date-range fields). No lifetime count or retention limit is inferred.
+- `pagination.page_size`: the requested size, preserving its legacy meaning.
+  `requested_page_size` always repeats the requested size. `server_page_size`
+  exposes `pager.page_size` when present, otherwise `stats.page_size` when
+  reported. It is never inferred from the number of orders returned.
+- `pagination.returned`: the number of order objects on this page, not a page-size
+  limit or total history count.
+- `pagination.total_results`: the API's reported available count, taken from the
+  pager when supplied, otherwise from `stats.total_results`. Missing counts are
+  not guessed, and zero counts remain zero. The unchanged `stats` allow inspection
+  if the two reported counts differ.
+
+A request for `page_size=100` returning 48 orders with `total_results=48` can
+simply be a short final page; it does **not** establish server clamping or a cap.
+For an optional lifetime-completeness comparison, fetch `get_profile` separately
+and compare its lifetime order count with the endpoint's available total. History
+pages do not make a mandatory profile request.
+
+A live account check observed roughly a year of available history, with fewer
+orders than its lifetime profile count. That is an observation, not a permanent
+12-month retention guarantee. A difference between available and lifetime history
+does not prove that older orders were deleted. Dates inferred from a single page
+describe that page only; without API range metadata, inspect all available pages
+before describing the available history's date range.
 
 **Migration from v1.1.6:** callers using the old 0-based `page_num` must add one
-to their page index. The response now provides `total_pages` and `current_page`
-instead of the legacy `total_orders` value, which only counted a capped subset.
+to their page index. The response provides `total_pages` and `current_page`
+instead of the legacy `total_orders` value, which only counted a recent subset.
 
 ## How It Works
 
