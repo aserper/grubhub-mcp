@@ -35,17 +35,59 @@ def register(mcp: FastMCP) -> None:
         return json.dumps({"status": "logged_out"})
 
     @mcp.tool()
-    async def get_session_info() -> str:
-        """Get current authentication state and session info."""
+    async def get_session_info(verify: bool = False) -> str:
+        """Report stored session state, not proof of a healthy login.
+
+        Legacy is_authenticated is the stored flag. Set verify=True to probe
+        the authenticated profile through the normal client (including refresh).
+        The token value and profile data are never included in this diagnostic.
+        """
         client = get_client()
-        return json.dumps(
-            {
-                "is_authenticated": client.session.is_authenticated,
-                "diner_udid": client.session.diner_udid,
-                "has_token": client.session.auth_token is not None,
-            },
-            indent=2,
-        )
+        result = {
+            "is_authenticated": client.session.is_authenticated,
+            "diner_udid": client.session.diner_udid,
+            "has_token": client.session.auth_token is not None,
+            "stored_is_authenticated": client.session.is_authenticated,
+            "verified_is_authenticated": None,
+            "verification_status": "not_checked",
+        }
+        if verify and not (
+            client.session.is_authenticated
+            and client.session.diner_udid
+            and client.session.auth_token
+        ):
+            result.update(
+                verification_status="relogin_required",
+                relogin_required=True,
+                error="No complete authenticated session is stored. Please log in again.",
+            )
+            return json.dumps(result, indent=2)
+        if verify:
+            try:
+                await client.get(
+                    f"/diners/{client.session.diner_udid}/details", auth_required=True
+                )
+            except (httpx.HTTPError, ValueError) as exc:
+                if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 401:
+                    result.update(
+                        verified_is_authenticated=False,
+                        verification_status="relogin_required",
+                        relogin_required=True,
+                        error="Authentication was rejected; the session may have expired. Please log in again.",
+                    )
+                else:
+                    result.update(
+                        verification_status="failed",
+                        relogin_required=None,
+                        error="Unable to verify session health. Please retry; authentication status is unknown.",
+                    )
+            else:
+                result.update(
+                    verified_is_authenticated=True,
+                    verification_status="authenticated",
+                    relogin_required=False,
+                )
+        return json.dumps(result, indent=2)
 
     @mcp.tool()
     async def send_login_otp(email: str) -> str:
